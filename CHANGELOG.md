@@ -33,6 +33,17 @@
   (`atmospheric_refraction_correction`) is unchanged — it already
   implemented pvlib-python's exact `spa.py` formula and needed no edits.
 
+### Fixed
+- **`irradiance::erbs()` clearness-index floor** — hardcoded
+  `cos(85°) ≈ 0.08716` as the minimum `cos(zenith)` used to compute the
+  internal clearness index `kt`, instead of pvlib-python's own default
+  `min_cos_zenith = 0.065` (`acos(0.065) ≈ 86.27°`). Found via golden-fixture
+  parity testing against pinned pvlib-python 0.15.2 (max `kt` error 0.0545
+  absolute at twilight before this fix, 0.0 after, across the full 2025 /
+  18-location grid). `erbs()` is the only function in `irradiance.rs` this
+  task touched; `erbs_driesse`, `clearness_index`, and the diffuse-fraction
+  models already used `0.065` or their own documented floor.
+
 ### Added
 - **`clearsky::linke_turbidity_monthly(month)`** — documented monthly Linke
   turbidity climatology for continental Romania / the Pannonian Basin

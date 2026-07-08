@@ -149,8 +149,13 @@ pub fn erbs(ghi: f64, zenith: f64, _day_of_year: u32, dni_extra: f64) -> (f64, f
         return (0.0, 0.0);
     }
     if ghi <= 0.0 || zenith >= 87.0 { return (0.0, ghi); }
-    let mut cos_z = zenith.to_radians().cos();
-    if cos_z < 85.0_f64.to_radians().cos() { cos_z = 85.0_f64.to_radians().cos(); }
+    // pvlib-python's `erbs()` floors cos(zenith) at `min_cos_zenith=0.065`
+    // (acos(0.065) ~= 86.27 deg), not cos(85 deg)=0.08716 -- the latter was
+    // this port's own defect, found via golden-fixture parity testing
+    // (see solar-engine docs/PLAN.md Gate G1; max abs kt error 0.0545 at
+    // twilight before this fix).
+    let min_cos_zenith = 0.065;
+    let cos_z = zenith.to_radians().cos().max(min_cos_zenith);
 
     let kt = ghi / (dni_extra * cos_z);
 

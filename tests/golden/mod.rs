@@ -39,14 +39,16 @@
 //!   pvlib-rust's `irradiance::erbs` returns only `(dni, dhi)` — `kt` isn't
 //!   part of the public return value. `golden_decomposition.rs` recomputes
 //!   the same clearness index pvlib-rust's `erbs()` computes internally
-//!   (`cos_z` clamped to `cos(85 deg)`, `kt = ghi / (dni_extra * cos_z)`,
-//!   unclamped above) to test "the kt implied by the primitive", rather than
-//!   substituting the differently-clamped public `clearness_index()`
-//!   function. This is a documented gap, not a bug: pvlib's own
-//!   `clearness_index` clamps `cos_zenith` to `min_cos_zenith=0.065` (not
-//!   `cos(85 deg)=0.08716`), so the two sides can disagree near sunrise/
-//!   sunset even though both use the exact same `get_extra_radiation`
-//!   (Spencer 1971, solar constant 1366.1).
+//!   (`cos_z` clamped to `min_cos_zenith=0.065`, matching pvlib-python's own
+//!   `erbs()` default; this floor was previously a defect at `cos(85
+//!   deg)=0.08716`, fixed alongside the SPA swap, see the decision doc above)
+//!   `kt = ghi / (dni_extra * cos_z)`, unclamped above, to test "the kt
+//!   implied by the primitive", rather than substituting the
+//!   differently-clamped public `clearness_index()` function (which floors
+//!   `cos_zenith` at 0.01 and clamps the result to [0, 1] — still a
+//!   documented gap, not a bug, from `erbs()`'s own internal, unclamped kt).
+//!   Both sides use the exact same `get_extra_radiation` (Spencer 1971, solar
+//!   constant 1366.1).
 
 #![allow(dead_code)]
 

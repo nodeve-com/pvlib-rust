@@ -13,8 +13,8 @@
 //! `kt`: pvlib-rust's public `erbs()` returns only `(dni, dhi)`, not `kt` --
 //! see tests/golden/mod.rs's doc comment for why this test recomputes
 //! erbs()'s own internal clearness-index formula (cos_z clamped to
-//! cos(85 deg)) instead of substituting the differently-clamped public
-//! `clearness_index()` function.
+//! `min_cos_zenith=0.065`, matching pvlib-python's default) instead of
+//! substituting the differently-clamped public `clearness_index()` function.
 
 #[path = "golden/mod.rs"]
 mod golden;
@@ -22,13 +22,14 @@ mod golden;
 use pvlib::irradiance;
 
 /// Replicates the `kt` pvlib-rust's `erbs()` computes internally
-/// (src/irradiance.rs `erbs`): `cos_z` clamped to a `cos(85 deg)` floor,
-/// `kt = ghi / (dni_extra * cos_z)`, unclamped above. Not the same as the
-/// public `clearness_index()` (which floors `cos_z` at 0.01 and clamps the
-/// result to [0, 1]) -- documented convention gap, see tests/golden/mod.rs.
+/// (src/irradiance.rs `erbs`): `cos_z` clamped to a `min_cos_zenith=0.065`
+/// floor (matching pvlib-python's default), `kt = ghi / (dni_extra * cos_z)`,
+/// unclamped above. Not the same as the public `clearness_index()` (which
+/// floors `cos_z` at 0.01 and clamps the result to [0, 1]) -- documented
+/// convention gap, see tests/golden/mod.rs.
 fn erbs_internal_kt(ghi: f64, zenith_deg: f64, dni_extra: f64) -> f64 {
-    let cos85 = 85.0_f64.to_radians().cos();
-    let cos_z = zenith_deg.to_radians().cos().max(cos85);
+    let min_cos_zenith = 0.065;
+    let cos_z = zenith_deg.to_radians().cos().max(min_cos_zenith);
     ghi / (dni_extra * cos_z)
 }
 
