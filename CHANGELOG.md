@@ -3,6 +3,14 @@
 ## [Unreleased]
 
 ### Added
+- **`clearsky::linke_turbidity_monthly(month)`** — documented monthly Linke
+  turbidity climatology for continental Romania / the Pannonian Basin
+  (TL 2.6 in Dec–Jan rising to 3.8 in Jun–Jul), consistent in shape and level
+  with the SoDa/Meteonorm worldwide climatology (Remund et al. 2003) but
+  explicitly approximate (~±0.3 TL); intended as an honest regional default to
+  pass to `clearsky::ineichen`. `clearsky::lookup_linke_turbidity` is unchanged
+  but its docs now flag it clearly as a 5-bucket heuristic, not the SoDa
+  dataset.
 - **Apparent (refraction-corrected) solar position** —
   `solarposition::get_solarposition_apparent` returns `ApparentSolarPosition`
   with `apparent_elevation` / `apparent_zenith` alongside the unchanged true

@@ -693,8 +693,13 @@ pub fn bird_default(
 
 /// Simplified lookup for Linke turbidity based on latitude, longitude, and month.
 ///
-/// This is a simplified approximation based on climate zones. The full version
-/// requires the LinkeTurbidities.h5 climatological dataset from SoDa/Meteonorm.
+/// **Heuristic — not the SoDa climatology.** This is a hand-rolled 5-bucket
+/// latitude/season approximation, *not* the gridded LinkeTurbidities.h5
+/// dataset from SoDa/Meteonorm that pvlib-python ships, and it will deviate
+/// from pvlib's `lookup_linke_turbidity` by several percent of clear-sky GHI.
+/// Prefer passing explicit monthly TL values to [`ineichen`] (for continental
+/// Romania / the Pannonian Basin see [`linke_turbidity_monthly`]). Kept for
+/// backward compatibility; a faithful SoDa lookup remains future work.
 ///
 /// # Arguments
 /// * `latitude` - Latitude in degrees (-90 to 90).
@@ -744,5 +749,49 @@ pub fn lookup_linke_turbidity(latitude: f64, longitude: f64, month: u32) -> f64 
         base + 0.5
     } else {
         base
+    }
+}
+
+/// Monthly Linke turbidity climatology for continental Romania and the
+/// Pannonian Basin (roughly 44-48N, 20-29E, low-altitude plains — e.g. the
+/// Chisineu-Cris / Arad area of western Romania).
+///
+/// Values are a smoothed monthly curve consistent in shape and level with the
+/// SoDa / Meteonorm worldwide Linke turbidity climatology (Remund et al.,
+/// "Worldwide Linke turbidity information", ISES 2003 — the dataset behind
+/// pvlib-python's `lookup_linke_turbidity`) for this region: a clean
+/// continental winter atmosphere (TL ~ 2.6 in December-January) rising to a
+/// humid, aerosol-loaded summer peak (TL ~ 3.8 in June-July).
+///
+/// **Approximate by design**: this is a regional typical-value curve, not the
+/// gridded SoDa data; expect roughly +/-0.3 TL versus the true monthly cell
+/// values, and do not use it outside the region above. For site-accurate
+/// work, obtain monthly TL from SoDa (soda-pro.com) and pass it to
+/// [`ineichen`] directly.
+///
+/// # Arguments
+/// * `month` - Month of year (1-12).
+///
+/// # Returns
+/// Linke turbidity factor (dimensionless, 2.6-3.8).
+///
+/// # Panics
+/// Panics if `month` is not in `1..=12`.
+#[inline]
+pub fn linke_turbidity_monthly(month: u32) -> f64 {
+    match month {
+        1 => 2.6,
+        2 => 2.8,
+        3 => 3.1,
+        4 => 3.4,
+        5 => 3.6,
+        6 => 3.8,
+        7 => 3.8,
+        8 => 3.7,
+        9 => 3.4,
+        10 => 3.1,
+        11 => 2.8,
+        12 => 2.6,
+        _ => panic!("month must be in 1..=12, got {month}"),
     }
 }

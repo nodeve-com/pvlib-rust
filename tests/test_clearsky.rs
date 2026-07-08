@@ -84,3 +84,50 @@ fn test_lookup_linke_turbidity_seasonal() {
     let summer = lookup_linke_turbidity(50.0, 10.0, 7);
     assert!(summer > winter, "Summer turbidity should exceed winter");
 }
+
+// ---------------------------------------------------------------------------
+// linke_turbidity_monthly (Romania / Pannonian Basin climatology)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_linke_turbidity_monthly_seasonal_shape() {
+    use pvlib::clearsky::linke_turbidity_monthly;
+
+    // Documented endpoints: clean winter, humid summer peak.
+    assert_eq!(linke_turbidity_monthly(1), 2.6);
+    assert_eq!(linke_turbidity_monthly(12), 2.6);
+    assert_eq!(linke_turbidity_monthly(6), 3.8);
+    assert_eq!(linke_turbidity_monthly(7), 3.8);
+
+    // All months in the documented 2.6-3.8 band.
+    for m in 1..=12 {
+        let tl = linke_turbidity_monthly(m);
+        assert!((2.6..=3.8).contains(&tl), "TL for month {} out of band: {}", m, tl);
+    }
+
+    // Monotonic rise Jan->Jun and fall Jul->Dec (smooth seasonal curve).
+    for m in 1..6 {
+        assert!(
+            linke_turbidity_monthly(m) <= linke_turbidity_monthly(m + 1),
+            "TL should not decrease from month {} to {}", m, m + 1
+        );
+    }
+    for m in 7..12 {
+        assert!(
+            linke_turbidity_monthly(m) >= linke_turbidity_monthly(m + 1),
+            "TL should not increase from month {} to {}", m, m + 1
+        );
+    }
+}
+
+#[test]
+#[should_panic(expected = "month must be in 1..=12")]
+fn test_linke_turbidity_monthly_panics_on_month_zero() {
+    pvlib::clearsky::linke_turbidity_monthly(0);
+}
+
+#[test]
+#[should_panic(expected = "month must be in 1..=12")]
+fn test_linke_turbidity_monthly_panics_on_month_13() {
+    pvlib::clearsky::linke_turbidity_monthly(13);
+}
