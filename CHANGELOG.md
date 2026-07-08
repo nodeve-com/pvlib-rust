@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Added
+- **Apparent (refraction-corrected) solar position** —
+  `solarposition::get_solarposition_apparent` returns `ApparentSolarPosition`
+  with `apparent_elevation` / `apparent_zenith` alongside the unchanged true
+  values. The third-party `spa` crate (PSA algorithm) exposes no refraction
+  inputs, so the NREL SPA atmospheric refraction correction (Reda & Andreas
+  2004) is implemented in `solarposition::atmospheric_refraction_correction`,
+  replicating pvlib-python `spa.py` exactly: `delta_e = (P/1010) ·
+  (283/(273+T)) · 1.02 / (60 · tan(rad(e0 + 10.3/(e0 + 5.11))))`, applied only
+  when `e0 >= -(0.26667 + atmos_refract)`; defaults match pvlib `spa_python`
+  (pressure 101325 Pa, temperature 12 C, `atmos_refract` 0.5667). Golden test
+  against the canonical NREL SPA reference point (2003-10-17 19:30:30 UTC,
+  Golden CO, 820 mbar / 11 C → apparent zenith 50.11162°) passes within 0.01°
+  (measured ~0.002°; the PSA algorithm is accurate to ~0.5 arcmin).
+
 ### Fixed
 - **Inverter AC clipping level** — `ModelChain` (`run_model`, `calc_ac_power`) and
   `BatchModelChain::run` passed the DC nameplate total as `pdc0` to

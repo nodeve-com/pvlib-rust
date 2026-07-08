@@ -31,6 +31,109 @@ pub fn get_solarposition(location: &Location, time: DateTime<Tz>) -> Result<Sola
     })
 }
 
+// --- Apparent (refraction-corrected) solar position ---
+
+/// Sun radius in degrees, as used by the NREL SPA horizon test
+/// (Reda & Andreas 2004).
+pub const SUN_RADIUS: f64 = 0.26667;
+
+/// Default atmospheric refraction at sunrise/sunset in degrees, matching the
+/// `atmos_refract` default of pvlib-python's `spa_python`.
+pub const DEFAULT_ATMOS_REFRACT: f64 = 0.5667;
+
+/// Output of the refraction-corrected solar position calculation.
+///
+/// `zenith`/`azimuth`/`elevation` are the true (unrefracted) values identical
+/// to [`get_solarposition`]; `apparent_elevation`/`apparent_zenith` include
+/// the SPA atmospheric refraction correction.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ApparentSolarPosition {
+    /// True zenith angle in degrees
+    pub zenith: f64,
+    /// True azimuth angle in degrees (North = 0, East = 90)
+    pub azimuth: f64,
+    /// True elevation angle in degrees
+    pub elevation: f64,
+    /// Refraction-corrected elevation angle in degrees
+    pub apparent_elevation: f64,
+    /// Refraction-corrected zenith angle in degrees
+    pub apparent_zenith: f64,
+}
+
+/// NREL SPA atmospheric refraction correction `delta_e` in degrees
+/// (Reda & Andreas 2004), exactly as applied by pvlib-python's `spa.py`:
+///
+/// ```text
+/// delta_e = (P/1010) * (283/(273+T)) * 1.02
+///           / (60 * tan(radians(e0 + 10.3/(e0 + 5.11))))
+/// ```
+///
+/// applied only while the sun is above the SPA horizon threshold
+/// `e0 >= -(SUN_RADIUS + atmos_refract)` (with the defaults, `-0.83337`
+/// degrees); below it the correction is 0. The apparent elevation is
+/// `e = e0 + delta_e`.
+///
+/// # Arguments
+/// * `pressure_mbar` - Local air pressure in millibar / hPa.
+/// * `temp_c` - Local air temperature in degrees C.
+/// * `e0` - Topocentric elevation angle without refraction, in degrees.
+/// * `atmos_refract` - Refraction at sunrise/sunset in degrees
+///   ([`DEFAULT_ATMOS_REFRACT`] = 0.5667 matches pvlib).
+#[inline]
+pub fn atmospheric_refraction_correction(
+    pressure_mbar: f64,
+    temp_c: f64,
+    e0: f64,
+    atmos_refract: f64,
+) -> f64 {
+    if e0 >= -(SUN_RADIUS + atmos_refract) {
+        (pressure_mbar / 1010.0) * (283.0 / (273.0 + temp_c)) * 1.02
+            / (60.0 * (e0 + 10.3 / (e0 + 5.11)).to_radians().tan())
+    } else {
+        0.0
+    }
+}
+
+/// Calculate the solar position including the refraction-corrected
+/// (apparent) elevation and zenith.
+///
+/// The true position comes from [`get_solarposition`]; the SPA atmospheric
+/// refraction correction ([`atmospheric_refraction_correction`], with
+/// `atmos_refract` = [`DEFAULT_ATMOS_REFRACT`]) is then applied to the
+/// elevation, matching pvlib-python's `spa_python` semantics. The existing
+/// non-refracted [`get_solarposition`] output is unchanged.
+///
+/// # Arguments
+/// * `pressure` - Avg. yearly air pressure in Pascals; `None` uses the
+///   pvlib default of 101325 Pa.
+/// * `temperature` - Avg. yearly air temperature in degrees C; `None` uses
+///   the pvlib default of 12 C.
+#[inline]
+pub fn get_solarposition_apparent(
+    location: &Location,
+    time: DateTime<Tz>,
+    pressure: Option<f64>,
+    temperature: Option<f64>,
+) -> Result<ApparentSolarPosition, SpaError> {
+    let sp = get_solarposition(location, time)?;
+    let pressure_mbar = pressure.unwrap_or(101325.0) / 100.0;
+    let temp_c = temperature.unwrap_or(12.0);
+    let delta_e = atmospheric_refraction_correction(
+        pressure_mbar,
+        temp_c,
+        sp.elevation,
+        DEFAULT_ATMOS_REFRACT,
+    );
+    let apparent_elevation = sp.elevation + delta_e;
+    Ok(ApparentSolarPosition {
+        zenith: sp.zenith,
+        azimuth: sp.azimuth,
+        elevation: sp.elevation,
+        apparent_elevation,
+        apparent_zenith: 90.0 - apparent_elevation,
+    })
+}
+
 // --- Helper ---
 
 /// Calculates the day angle for the Earth's orbit around the Sun.

@@ -29,10 +29,13 @@ so downstream users can see what is genuinely on the way versus marketing.
    by a specific `pvlib-python` version (e.g. 0.11.2) for a canonical
    location + weather input, and add `tests/test_python_parity.rs` that
    diffs `ModelChain` output against it with documented tolerances.
-6. **Solar position refraction correction** — wire the `spa` crate's
-   `pressure` and `temperature` arguments through
-   `solarposition::get_solarposition`. Currently ignored, which drifts
-   the apparent zenith by up to ~0.1° at low sun.
+6. ~~Solar position refraction correction~~ — **shipped (unreleased).**
+   The `spa` crate (PSA algorithm) turned out to expose no
+   pressure/temperature inputs at all, so the NREL SPA refraction
+   correction (Reda & Andreas 2004, as in pvlib `spa.py`) is implemented
+   directly: `solarposition::{atmospheric_refraction_correction,
+   get_solarposition_apparent, ApparentSolarPosition}`, with a golden
+   test against the canonical NREL SPA reference point.
 
 ## API / ergonomics (medium priority)
 

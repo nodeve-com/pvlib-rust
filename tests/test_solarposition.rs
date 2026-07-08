@@ -220,3 +220,98 @@ fn test_earthsun_distance_range() {
         );
     }
 }
+
+
+// --- Apparent (refraction-corrected) solar position ---
+
+/// Canonical NREL SPA reference point (Reda & Andreas 2004, Table A4.1 —
+/// the same case pvlib-python's test_spa.py uses):
+/// 2003-10-17 19:30:30 UTC, lat 39.742476, lon -105.1786, elev 1830.14 m,
+/// pressure 820 mbar, temperature 11 C.
+/// Reference values: topocentric zenith (apparent) theta = 50.11162 deg,
+/// true zenith theta0 = 50.12800 deg, refraction delta_e = 0.016380 deg.
+///
+/// The underlying `spa` crate implements the PSA algorithm (accurate to
+/// ~0.5 arcmin = 0.0083 deg), not the full NREL SPA, so the golden
+/// comparison uses a 0.01 deg tolerance (measured error is ~0.002 deg).
+#[test]
+fn test_apparent_zenith_nrel_spa_reference() {
+    use chrono::TimeZone;
+    let loc = pvlib::location::Location::new(
+        39.742476, -105.1786, chrono_tz::UTC, 1830.14, "NREL",
+    );
+    let t = chrono_tz::UTC.with_ymd_and_hms(2003, 10, 17, 19, 30, 30).unwrap();
+    // 820 mbar = 82000 Pa (the API takes Pascals, like pvlib spa_python).
+    let sp = get_solarposition_apparent(&loc, t, Some(82000.0), Some(11.0)).unwrap();
+
+    assert!(
+        (sp.apparent_zenith - 50.11162).abs() < 0.01,
+        "apparent zenith {} should match NREL SPA reference 50.11162 deg",
+        sp.apparent_zenith
+    );
+    assert!(
+        (sp.zenith - 50.12800).abs() < 0.01,
+        "true zenith {} should match NREL SPA reference 50.12800 deg",
+        sp.zenith
+    );
+    // Refraction correction itself matches NREL's 0.016380 deg closely.
+    let delta_e = sp.apparent_elevation - sp.elevation;
+    assert!(
+        (delta_e - 0.016380).abs() < 0.001,
+        "refraction correction {} should be ~0.01638 deg",
+        delta_e
+    );
+    // Apparent zenith is always <= true zenith while the sun is up.
+    assert!(sp.apparent_zenith < sp.zenith);
+}
+
+#[test]
+fn test_refraction_negligible_at_high_sun() {
+    // At 60 deg elevation the SPA refraction is under ~0.01 deg.
+    let delta_e = atmospheric_refraction_correction(1013.25, 12.0, 60.0, DEFAULT_ATMOS_REFRACT);
+    assert!(delta_e > 0.0);
+    assert!(delta_e < 0.01, "refraction at e0=60 should be ~0.006 deg, got {}", delta_e);
+}
+
+#[test]
+fn test_refraction_near_horizon() {
+    // At the horizon (e0 = 0) the standard-atmosphere refraction is
+    // ~0.48 deg; anywhere in 0.4-0.6 deg is physically right.
+    let delta_e = atmospheric_refraction_correction(1013.25, 12.0, 0.0, DEFAULT_ATMOS_REFRACT);
+    assert!(
+        (0.4..=0.6).contains(&delta_e),
+        "refraction at the horizon should be 0.4-0.6 deg, got {}",
+        delta_e
+    );
+}
+
+#[test]
+fn test_refraction_zero_below_spa_horizon_threshold() {
+    // pvlib/NREL SPA applies the correction only when
+    // e0 >= -(SUN_RADIUS + atmos_refract) = -0.83337 deg with defaults.
+    let threshold = -(SUN_RADIUS + DEFAULT_ATMOS_REFRACT);
+    assert!((threshold - (-0.83337)).abs() < 1e-9);
+
+    // Below the threshold: no correction.
+    let below = atmospheric_refraction_correction(1013.25, 12.0, threshold - 0.001, DEFAULT_ATMOS_REFRACT);
+    assert_eq!(below, 0.0);
+    // At/above the threshold: correction applies.
+    let at = atmospheric_refraction_correction(1013.25, 12.0, threshold, DEFAULT_ATMOS_REFRACT);
+    assert!(at > 0.0);
+}
+
+#[test]
+fn test_apparent_defaults_match_explicit_pvlib_defaults() {
+    use chrono::TimeZone;
+    let loc = pvlib::location::Location::new(46.52, 21.52, chrono_tz::UTC, 100.0, "Chisineu");
+    let t = chrono_tz::UTC.with_ymd_and_hms(2025, 6, 21, 10, 0, 0).unwrap();
+    let defaulted = get_solarposition_apparent(&loc, t, None, None).unwrap();
+    let explicit = get_solarposition_apparent(&loc, t, Some(101325.0), Some(12.0)).unwrap();
+    assert_eq!(defaulted, explicit);
+
+    // True fields are unchanged vs the non-refracted API.
+    let plain = get_solarposition(&loc, t).unwrap();
+    assert_eq!(defaulted.zenith, plain.zenith);
+    assert_eq!(defaulted.azimuth, plain.azimuth);
+    assert_eq!(defaulted.elevation, plain.elevation);
+}
