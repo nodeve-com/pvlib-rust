@@ -1,5 +1,19 @@
 # pvlib-rust Changelog
 
+## [Unreleased]
+
+### Fixed
+- **Inverter AC clipping level** — `ModelChain` (`run_model`, `calc_ac_power`) and
+  `BatchModelChain::run` passed the DC nameplate total as `pdc0` to
+  `inverter::pvwatts_ac`, so AC output clipped at the DC capacity instead of the
+  inverter capacity; the `inverter_pac0` / `inverter_capacity` fields were dead
+  code. Both pipelines now use the inverter field as `pdc0` (AC ceiling =
+  `eta_inv_nom * inverter_pdc0`), falling back to the DC nameplate when the field
+  is unset (`<= 0.0`), which preserves prior behavior for callers that never set
+  an inverter rating. Wrong for any DC/AC ratio != 1 (e.g. a 54.1 MW DC /
+  49.57 MW AC plant clipped at 51.94 MW instead of 47.59 MW). Regression tests in
+  `tests/test_inverter_clipping.rs`.
+
 ## [0.1.6] - 2026-04-20
 
 ### Changed

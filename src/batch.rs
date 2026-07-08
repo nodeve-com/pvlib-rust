@@ -432,6 +432,13 @@ pub struct BatchModelChain {
     pub system_capacity_dc: f64,
     /// Temperature coefficient, e.g. -0.004
     pub gamma_pdc: f64,
+    /// Inverter power rating, used as `pdc0` in `inverter::pvwatts_ac`
+    /// (the inverter's DC input limit; AC output is clamped to
+    /// `inverter_efficiency * inverter_capacity`). Defaults to
+    /// `system_capacity_dc`; set it via `with_inverter` so AC clipping
+    /// happens at the inverter capacity rather than the DC nameplate —
+    /// essential for any DC/AC ratio != 1. If `<= 0.0`, falls back to
+    /// `system_capacity_dc` (the pre-0.1.7 behavior).
     pub inverter_capacity: f64,
     pub inverter_efficiency: f64,
     pub albedo: f64,
@@ -478,7 +485,8 @@ impl BatchModelChain {
         self
     }
 
-    /// Builder: set inverter parameters.
+    /// Builder: set inverter parameters. `capacity` is used as `pdc0` in
+    /// `inverter::pvwatts_ac`; AC output is clamped to `efficiency * capacity`.
     pub fn with_inverter(mut self, capacity: f64, efficiency: f64) -> Self {
         self.inverter_capacity = capacity;
         self.inverter_efficiency = efficiency;
@@ -535,6 +543,13 @@ impl BatchModelChain {
 
         let pressure = atmosphere::alt2pres(self.location.altitude);
         let albedo_default = self.albedo;
+        // `pdc0` for the PVWatts inverter model: the inverter rating when
+        // set, falling back to the DC nameplate (pre-0.1.7 behavior) when not.
+        let inverter_pdc0 = if self.inverter_capacity > 0.0 {
+            self.inverter_capacity
+        } else {
+            self.system_capacity_dc
+        };
 
         // Run entire pipeline in parallel for each timestep
         let results: Result<Vec<_>, _> = (0..n).into_par_iter().map(|i| {
@@ -616,7 +631,7 @@ impl BatchModelChain {
 
             // 10. AC power
             let pac = inverter::pvwatts_ac(
-                pdc, self.system_capacity_dc,
+                pdc, inverter_pdc0,
                 self.inverter_efficiency, 0.9637,
             );
 

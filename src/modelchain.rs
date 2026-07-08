@@ -234,6 +234,15 @@ pub struct ModelChain {
     pub location: Location,
     pub surface_tilt: f64,
     pub surface_azimuth: f64,
+    /// Inverter power rating, used as `pdc0` in `inverter::pvwatts_ac`
+    /// (the inverter's DC input limit; AC output is clamped to
+    /// `inverter_eta * inverter_pac0`). Set this to the inverter/plant AC
+    /// rating so that AC clipping happens at the inverter capacity rather
+    /// than the DC nameplate — essential for any DC/AC ratio != 1.
+    ///
+    /// Fallback: if `<= 0.0`, the DC nameplate total is used instead,
+    /// preserving the pre-0.1.7 behavior for callers that never set a
+    /// meaningful inverter rating.
     pub inverter_pac0: f64,
     pub inverter_eta: f64,
     pub config: ModelChainConfig,
@@ -371,7 +380,7 @@ impl ModelChain {
         let poa_global = poa_dir * iam_mult + poa_diffuse_val;
         let temp_cell = temp_air + poa_global * (45.0 - 20.0) / 800.0;
         let pdc = self.system.get_dc_power_total(poa_global, temp_cell);
-        let pdc0 = self.system.get_nameplate_dc_total();
+        let pdc0 = self.inverter_pdc0();
         let eta_inv_nom = self.inverter_eta;
         let eta_inv_ref = 0.9637;
         let pac = inverter::pvwatts_ac(pdc, pdc0, eta_inv_nom, eta_inv_ref);
@@ -672,8 +681,19 @@ impl ModelChain {
         }
     }
 
+    /// The `pdc0` passed to `inverter::pvwatts_ac`: the inverter rating
+    /// (`inverter_pac0`) when set, falling back to the DC nameplate total
+    /// when it is not (`<= 0.0`).
+    fn inverter_pdc0(&self) -> f64 {
+        if self.inverter_pac0 > 0.0 {
+            self.inverter_pac0
+        } else {
+            self.system.get_nameplate_dc_total()
+        }
+    }
+
     fn calc_ac_power(&self, pdc: f64) -> f64 {
-        let pdc0 = self.system.get_nameplate_dc_total();
+        let pdc0 = self.inverter_pdc0();
         let eta_inv_nom = self.inverter_eta;
         let eta_inv_ref = 0.9637;
         match self.config.ac_model {
