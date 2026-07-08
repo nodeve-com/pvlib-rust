@@ -80,7 +80,7 @@ impl Location {
     /// Calculate the solar position for this location at the given time.
     ///
     /// Convenience wrapper around `solarposition::get_solarposition`.
-    pub fn get_solarposition(&self, time: DateTime<Tz>) -> Result<SolarPosition, spa::SpaError> {
+    pub fn get_solarposition(&self, time: DateTime<Tz>) -> Result<SolarPosition, solarposition::SpaError> {
         solarposition::get_solarposition(self, time)
     }
 

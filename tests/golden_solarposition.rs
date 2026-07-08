@@ -97,12 +97,15 @@ fn true_position_matches_pvlib() {
 /// `spa_python`'s defaults used to generate the fixture) vs pvlib's
 /// `apparent_zenith` / `apparent_elevation` columns.
 ///
-/// This is the load-bearing check for Gate G1: the crate's `spa` dependency
-/// implements the PSA algorithm (Blanco-Muriel et al. 2001), documented as
-/// "accurate to within 0.5 minutes of arc for the year 1999 and following"
-/// — this test runs it against all of 2025 (or the 12-day subset) to see
-/// whether that historical accuracy claim still holds a decade past PSA's
-/// original fitting window.
+/// This is the load-bearing check for Gate G1. As of the `solar-positioning`
+/// crate swap (`docs/decisions/spa-solar-position.md` in solar-engine),
+/// pvlib-rust computes this via the full Reda & Andreas NREL SPA
+/// (±0.0003 deg), replacing the earlier `spa` crate dependency, which —
+/// despite the name — implemented PSA (Blanco-Muriel et al. 2001), documented
+/// as "accurate to within 0.5 minutes of arc for the year 1999 and
+/// following". This test runs the current backend against all of 2025 (or
+/// the 12-day subset) to confirm the swap holds the 0.01 deg Gate G1 budget
+/// with wide margin, not just barely.
 #[test]
 fn apparent_position_matches_pvlib() {
     let Some(dir) = golden::fixture_dir() else {
@@ -173,7 +176,7 @@ fn apparent_position_matches_pvlib() {
 /// asserted in a doc comment): at each location's daily solar transit
 /// (minimum zenith of the day), the sun should be roughly due south
 /// (azimuth ~ 180 deg) for these northern-hemisphere fleet locations, in
-/// BOTH pvlib's fixture and pvlib-rust's output. If pvlib-rust's `spa` crate
+/// BOTH pvlib's fixture and pvlib-rust's output. If pvlib-rust's SPA backend
 /// used a different zero point (e.g. "0 = South" instead of "0 = North"),
 /// this would show transit azimuths near 0 instead of 180 and this test
 /// would fail loudly.
@@ -223,7 +226,7 @@ fn azimuth_zero_point_matches_pvlib_north_convention() {
         assert!(
             (sp.azimuth - 180.0).abs() < 60.0,
             "{slug}: pvlib-rust azimuth at daily transit should be near 180 (south), got {} \
-             -- indicates the spa crate's azimuth zero point does NOT match pvlib's",
+             -- indicates pvlib-rust's SPA backend's azimuth zero point does NOT match pvlib's",
             sp.azimuth
         );
     }

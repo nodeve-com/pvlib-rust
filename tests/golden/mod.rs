@@ -16,14 +16,16 @@
 //!
 //! - **Azimuth zero point**: pvlib-python's `solarposition.spa_python` and
 //!   pvlib-rust's `solarposition::SolarPosition` both report azimuth in
-//!   "degrees clockwise from North" (0=N, 90=E, 180=S, 270=W). The `spa`
-//!   crate underneath pvlib-rust (PSA algorithm, Blanco-Muriel et al. 2001)
-//!   computes `atan2(-sin(H), tan(dec)*cos(lat) - sin(lat)*cos(H))`, which
-//!   already lands on ~180 deg at solar transit in the northern hemisphere —
-//!   the SAME zero point as pvlib. `golden_solarposition.rs` asserts this
-//!   numerically (transit-time azimuth close to 180 for all 18 — all
-//!   northern-hemisphere — locations) instead of just trusting the docstring.
-//!   No sign flip or offset is applied anywhere in this file.
+//!   "degrees clockwise from North" (0=N, 90=E, 180=S, 270=W). pvlib-rust's
+//!   `solarposition` module computes this via the `solar-positioning` crate's
+//!   full NREL SPA (Reda & Andreas 2003/2004, replacing the earlier `spa`
+//!   crate which was actually PSA/Blanco-Muriel — see
+//!   `solar-engine/docs/decisions/spa-solar-position.md`), whose own
+//!   documented coordinate system is "0 deg = North, clockwise" — the SAME
+//!   zero point as pvlib. `golden_solarposition.rs` asserts this numerically
+//!   (transit-time azimuth close to 180 for all 18 — all northern-hemisphere
+//!   — locations) instead of just trusting the docstring. No sign flip or
+//!   offset is applied anywhere in this file.
 //! - **Zenith vs elevation**: `elevation = 90 - zenith` on both sides.
 //! - **Pressure units**: pvlib's `alt2pres` / `spa_python` take/return
 //!   Pascals; ephem's `Observer.pressure` is millibar/hPa (not used

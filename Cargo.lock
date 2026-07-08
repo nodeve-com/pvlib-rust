@@ -826,6 +826,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5b646652bf6661599e1da8901b3b9522896f01e736bad5f723fe7a3a27f899d"
 
 [[package]]
+name = "libm"
+version = "0.2.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
+
+[[package]]
 name = "linux-raw-sys"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -980,7 +986,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "spa",
+ "solar-positioning",
  "tempfile",
  "thiserror 2.0.18",
 ]
@@ -1417,13 +1423,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "spa"
-version = "0.5.1"
+name = "solar-positioning"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b23404f558ad79b3699cf61d6f2d65a64c1bd63249c1ef70321fec26933abd36"
+checksum = "43be6efda1aa40c21271a0349b351b09c15294c3d9c5a5facca4da97c373633c"
 dependencies = [
  "chrono",
- "thiserror 1.0.69",
+ "libm",
 ]
 
 [[package]]

@@ -231,9 +231,17 @@ fn test_earthsun_distance_range() {
 /// Reference values: topocentric zenith (apparent) theta = 50.11162 deg,
 /// true zenith theta0 = 50.12800 deg, refraction delta_e = 0.016380 deg.
 ///
-/// The underlying `spa` crate implements the PSA algorithm (accurate to
-/// ~0.5 arcmin = 0.0083 deg), not the full NREL SPA, so the golden
-/// comparison uses a 0.01 deg tolerance (measured error is ~0.002 deg).
+/// As of the `solar-positioning` crate swap (replacing the earlier `spa`
+/// crate, which was actually PSA/Blanco-Muriel, not NREL SPA -- see
+/// solar-engine's `docs/decisions/spa-solar-position.md`), this exercises the
+/// full Reda & Andreas SPA (±0.0003 deg). `get_solarposition` doesn't accept
+/// a caller-supplied delta_t, so this runs through the crate's own
+/// Espenak-Meeus estimate for 2003-10 (~64.51 s) rather than NREL's example's
+/// exact delta_t=67 s -- measured directly, that ~2.5 s delta_t difference
+/// contributes at most ~5e-5 deg of zenith/azimuth error here, negligible
+/// next to SPA's own ±0.0003 deg accuracy claim. Tolerance tightened from the
+/// old PSA-era 0.01 deg to 0.001 deg (roughly 20x the largest error actually
+/// observed), not loosened to match whatever the code outputs.
 #[test]
 fn test_apparent_zenith_nrel_spa_reference() {
     use chrono::TimeZone;
@@ -245,14 +253,19 @@ fn test_apparent_zenith_nrel_spa_reference() {
     let sp = get_solarposition_apparent(&loc, t, Some(82000.0), Some(11.0)).unwrap();
 
     assert!(
-        (sp.apparent_zenith - 50.11162).abs() < 0.01,
+        (sp.apparent_zenith - 50.11162).abs() < 0.001,
         "apparent zenith {} should match NREL SPA reference 50.11162 deg",
         sp.apparent_zenith
     );
     assert!(
-        (sp.zenith - 50.12800).abs() < 0.01,
+        (sp.zenith - 50.12800).abs() < 0.001,
         "true zenith {} should match NREL SPA reference 50.12800 deg",
         sp.zenith
+    );
+    assert!(
+        (sp.azimuth - 194.340241).abs() < 0.001,
+        "azimuth {} should match NREL SPA reference 194.340241 deg",
+        sp.azimuth
     );
     // Refraction correction itself matches NREL's 0.016380 deg closely.
     let delta_e = sp.apparent_elevation - sp.elevation;

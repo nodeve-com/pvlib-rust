@@ -1,9 +1,18 @@
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
-use spa::{solar_position, SpaError, StdFloatOps};
+use solar_positioning::{spa, time::DeltaT};
 use crate::location::Location;
 
 use std::f64::consts::PI;
+
+/// Error produced by the solar position functions in this module.
+///
+/// Re-exports `solar_positioning::Error` (invalid latitude/longitude/pressure/
+/// temperature/date, or a delta-T estimate outside its -500..3000 CE range) —
+/// see [`solar_positioning::error::Error`] for the full variant list. Kept as
+/// a type alias (rather than a fresh `thiserror` enum) since nothing in this
+/// crate inspects individual variants; every caller just propagates via `?`.
+pub type SpaError = solar_positioning::Error;
 
 /// Output of the solar position calculation.
 #[derive(Debug, Clone, PartialEq)]
@@ -17,17 +26,35 @@ pub struct SolarPosition {
 }
 
 /// Calculate the solar position for a given location and time.
-/// This uses the NREL SPA (Solar Position Algorithm).
+///
+/// Uses the full NREL SPA (Reda & Andreas 2003/2004) via the `solar-positioning`
+/// crate, ±0.0003 deg accuracy — see `docs/decisions/spa-solar-position.md` in
+/// the solar-engine repo for why this replaced the earlier `spa` crate (which,
+/// despite the name, implemented PSA/Blanco-Muriel, not NREL SPA).
+///
+/// Delta-T (TT - UT1) is estimated from the timestamp's year/month via the
+/// crate's Espenak-Meeus polynomial (`DeltaT::estimate_from_date_like`) rather
+/// than a fixed constant; for our 2020s-2030s operating window the resulting
+/// solar-position sensitivity to delta-T is <2e-5 deg, far under the 0.01 deg
+/// Gate G1 budget, so no caller-supplied override is exposed.
 #[inline]
 pub fn get_solarposition(location: &Location, time: DateTime<Tz>) -> Result<SolarPosition, SpaError> {
     let utc_time: DateTime<Utc> = time.with_timezone(&Utc);
+    let delta_t = DeltaT::estimate_from_date_like(utc_time)?;
 
-    let result = solar_position::<StdFloatOps>(utc_time, location.latitude, location.longitude)?;
+    let result = spa::solar_position(
+        utc_time,
+        location.latitude,
+        location.longitude,
+        location.altitude,
+        delta_t,
+        None,
+    )?;
 
     Ok(SolarPosition {
-        zenith: result.zenith_angle,
-        azimuth: result.azimuth,
-        elevation: 90.0 - result.zenith_angle,
+        zenith: result.zenith_angle(),
+        azimuth: result.azimuth(),
+        elevation: result.elevation_angle(),
     })
 }
 

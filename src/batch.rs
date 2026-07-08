@@ -13,7 +13,7 @@ use crate::{solarposition, atmosphere, clearsky, irradiance, temperature, iam, i
 pub fn solar_position_batch(
     location: &crate::location::Location,
     times: &[chrono::DateTime<chrono_tz::Tz>],
-) -> Result<(Vec<f64>, Vec<f64>, Vec<f64>), spa::SpaError> {
+) -> Result<(Vec<f64>, Vec<f64>, Vec<f64>), solarposition::SpaError> {
     let results: Result<Vec<_>, _> = times.par_iter()
         .map(|t| solarposition::get_solarposition(location, *t))
         .collect();
@@ -33,7 +33,7 @@ pub fn solar_position_batch_utc(
     longitude: f64,
     altitude: f64,
     times: &[chrono::NaiveDateTime],
-) -> Result<(Vec<f64>, Vec<f64>, Vec<f64>), spa::SpaError> {
+) -> Result<(Vec<f64>, Vec<f64>, Vec<f64>), solarposition::SpaError> {
     let location = crate::location::Location::new(latitude, longitude, chrono_tz::UTC, altitude, "UTC");
     let datetimes: Vec<chrono::DateTime<chrono_tz::Tz>> = times
         .iter()
@@ -530,7 +530,7 @@ impl BatchModelChain {
     /// Run the full simulation on a weather time series.
     ///
     /// Uses rayon for automatic parallelization across CPU cores.
-    pub fn run(&self, weather: &WeatherSeries) -> Result<SimulationSeries, spa::SpaError> {
+    pub fn run(&self, weather: &WeatherSeries) -> Result<SimulationSeries, solarposition::SpaError> {
         let n = weather.times.len();
         assert_eq!(weather.ghi.len(), n);
         assert_eq!(weather.dni.len(), n, "dni len mismatch");

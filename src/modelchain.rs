@@ -2,7 +2,7 @@ use chrono::DateTime;
 use chrono_tz::Tz;
 use crate::location::Location;
 use crate::pvsystem::PVSystem;
-use crate::solarposition::get_solarposition;
+use crate::solarposition::{self, get_solarposition};
 use crate::irradiance::{
     aoi, get_total_irradiance, get_extra_radiation, poa_direct, erbs,
     DiffuseModel, PoaComponents,
@@ -371,7 +371,7 @@ impl ModelChain {
         dhi: f64,
         temp_air: f64,
         _wind_speed: f64,
-    ) -> Result<SimulationResult, spa::SpaError> {
+    ) -> Result<SimulationResult, solarposition::SpaError> {
         let solpos = get_solarposition(&self.location, time)?;
         let incidence = aoi(self.surface_tilt, self.surface_azimuth, solpos.zenith, solpos.azimuth);
         let iam_mult = iam::ashrae(incidence, 0.05);
@@ -405,7 +405,7 @@ impl ModelChain {
     pub fn run_model_from_weather(
         &self,
         weather: &WeatherInput,
-    ) -> Result<ModelChainResult, spa::SpaError> {
+    ) -> Result<ModelChainResult, solarposition::SpaError> {
         // Complete irradiance if needed
         let (ghi, dni, dhi) = self.resolve_irradiance(weather)?;
         let albedo = weather.albedo.unwrap_or(0.25);
@@ -473,7 +473,7 @@ impl ModelChain {
     pub fn run_model_from_poa(
         &self,
         input: &POAInput,
-    ) -> Result<ModelChainResult, spa::SpaError> {
+    ) -> Result<ModelChainResult, solarposition::SpaError> {
         let solpos = get_solarposition(&self.location, input.time)?;
         let am_rel = get_relative_airmass(solpos.zenith);
         let pressure = alt2pres(self.location.altitude);
@@ -504,7 +504,7 @@ impl ModelChain {
     pub fn run_model_from_effective_irradiance(
         &self,
         input: &EffectiveIrradianceInput,
-    ) -> Result<ModelChainResult, spa::SpaError> {
+    ) -> Result<ModelChainResult, solarposition::SpaError> {
         let solpos = get_solarposition(&self.location, input.time)?;
         let am_rel = get_relative_airmass(solpos.zenith);
         let pressure = alt2pres(self.location.altitude);
@@ -543,7 +543,7 @@ impl ModelChain {
     pub fn complete_irradiance(
         &self,
         weather: &WeatherInput,
-    ) -> Result<(f64, f64, f64), spa::SpaError> {
+    ) -> Result<(f64, f64, f64), solarposition::SpaError> {
         self.resolve_irradiance(weather)
     }
 
@@ -554,7 +554,7 @@ impl ModelChain {
     fn resolve_irradiance(
         &self,
         weather: &WeatherInput,
-    ) -> Result<(f64, f64, f64), spa::SpaError> {
+    ) -> Result<(f64, f64, f64), solarposition::SpaError> {
         match (weather.ghi, weather.dni, weather.dhi) {
             (Some(ghi), Some(dni), Some(dhi)) => Ok((ghi, dni, dhi)),
             (Some(ghi), _, _) => {
@@ -592,7 +592,7 @@ impl ModelChain {
         poa: &PoaComponents,
         temp_air: f64,
         wind_speed: f64,
-    ) -> Result<ModelChainResult, spa::SpaError> {
+    ) -> Result<ModelChainResult, solarposition::SpaError> {
         // AOI modifier (IAM)
         let aoi_modifier = self.calc_aoi_modifier(aoi_val);
 

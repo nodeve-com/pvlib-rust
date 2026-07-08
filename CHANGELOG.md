@@ -2,6 +2,37 @@
 
 ## [Unreleased]
 
+### Changed
+- **Solar position engine: `spa` crate (0.5.1) → `solar-positioning` (0.5.2,
+  pinned exactly).** Despite its name, `spa` 0.5.1 implemented **PSA
+  (Blanco-Muriel et al. 2001)**, not NREL SPA — a low-order fitted polynomial
+  accurate to ~0.008–0.01° with no stated validity past 2015, and no
+  pressure/temperature refraction inputs at all. `solar-positioning` is a
+  clean-room, `no_std` + `libm` implementation of the full **Reda & Andreas
+  (2003/2004) NREL SPA** (nutation + aberration included), ±0.0003°, MIT
+  licensed. `solarposition::get_solarposition` /
+  `get_solarposition_apparent` keep their existing signatures and return
+  types (`SolarPosition` / `ApparentSolarPosition`); only the error type
+  changed, from `spa::SpaError` to `solarposition::SpaError` (now a type
+  alias for `solar_positioning::Error`) — every caller in this crate
+  (`batch.rs`, `modelchain.rs`, `location.rs`) already just propagates the
+  error via `?`, so this is not a behavioral change. Delta-T (TT − UT1) is
+  estimated per-timestamp via the crate's Espenak-Meeus polynomial
+  (`DeltaT::estimate_from_date_like`) rather than a fixed constant; measured
+  sensitivity to that estimate is ~5e-5° even against a 2003 reference point
+  using a ΔT nearly 2.5s off from the literature value, negligible against
+  the ±0.0003° accuracy budget. `Cargo.toml` pins
+  `default-features = false, features = ["libm", "chrono"]` — verified
+  building cleanly for `wasm32-unknown-unknown` (no fs/net, no std math
+  backend). Full rationale, candidate comparison, and golden-fixture
+  before/after numbers in solar-engine's
+  `docs/decisions/spa-solar-position.md`. Rewired: `src/solarposition.rs`.
+  Removed dependency: `spa`.
+- The apparent (refraction-corrected) solar position entry below is updated
+  in place to describe the new backend; the refraction formula itself
+  (`atmospheric_refraction_correction`) is unchanged — it already
+  implemented pvlib-python's exact `spa.py` formula and needed no edits.
+
 ### Added
 - **`clearsky::linke_turbidity_monthly(month)`** — documented monthly Linke
   turbidity climatology for continental Romania / the Pannonian Basin
@@ -14,16 +45,20 @@
 - **Apparent (refraction-corrected) solar position** —
   `solarposition::get_solarposition_apparent` returns `ApparentSolarPosition`
   with `apparent_elevation` / `apparent_zenith` alongside the unchanged true
-  values. The third-party `spa` crate (PSA algorithm) exposes no refraction
-  inputs, so the NREL SPA atmospheric refraction correction (Reda & Andreas
-  2004) is implemented in `solarposition::atmospheric_refraction_correction`,
+  values. Neither the original `spa` crate (PSA algorithm, replaced above)
+  nor its replacement `solar-positioning` expose the refraction correction
+  as pvlib needs it (one struct with both true and apparent values), so the
+  NREL SPA atmospheric refraction correction (Reda & Andreas 2004) is
+  implemented directly in `solarposition::atmospheric_refraction_correction`,
   replicating pvlib-python `spa.py` exactly: `delta_e = (P/1010) ·
   (283/(273+T)) · 1.02 / (60 · tan(rad(e0 + 10.3/(e0 + 5.11))))`, applied only
   when `e0 >= -(0.26667 + atmos_refract)`; defaults match pvlib `spa_python`
   (pressure 101325 Pa, temperature 12 C, `atmos_refract` 0.5667). Golden test
   against the canonical NREL SPA reference point (2003-10-17 19:30:30 UTC,
-  Golden CO, 820 mbar / 11 C → apparent zenith 50.11162°) passes within 0.01°
-  (measured ~0.002°; the PSA algorithm is accurate to ~0.5 arcmin).
+  Golden CO, 820 mbar / 11 C → apparent zenith 50.11162°, azimuth
+  194.340241°) passes within 0.001° (measured ~5e-5°, now that the full NREL
+  SPA backend is in place — tightened from the original 0.01°/~0.002° when
+  this was still running on PSA).
 
 ### Fixed
 - **Inverter AC clipping level** — `ModelChain` (`run_model`, `calc_ac_power`) and
