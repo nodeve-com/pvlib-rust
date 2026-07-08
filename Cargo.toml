@@ -44,6 +44,8 @@ thiserror = "2"
 approx = "0.5"
 criterion = { version = "0.5", default-features = false }
 tempfile = "3"
+# Gate-G1 golden parity tests (tests/golden_*.rs) read gzipped CSV fixtures.
+flate2 = "1"
 
 [[bench]]
 name = "batch_tmy"
